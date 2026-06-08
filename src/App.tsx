@@ -1,26 +1,45 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import { useState } from 'react';
+import { PlotChart } from './components/PlotChart';
+import { StockList } from './components/StockList';
+import { useLiveChart } from './hooks/useLiveChart';
 
-function App() {
+const STOCKS = [
+  'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'META',
+  'TSLA', 'NVDA', 'NFLX', 'AMD',  'INTC',
+  'ORCL', 'IBM',  'CRM',  'ADBE', 'PYPL',
+  'UBER', 'LYFT', 'SNAP', 'PINS', 'SPOT',
+];
+
+export default function App() {
+  const [selectedStock, setSelectedStock] = useState(STOCKS[0]);
+  const { loading } = useLiveChart(selectedStock);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div style={{
+      display: 'flex',
+      height: '100vh',
+      background: '#0f0f0f',
+      color: '#f9fafb',
+      fontFamily: 'ui-monospace, monospace',
+      overflow: 'hidden',
+    }}>
+      <StockList stocks={STOCKS} selected={selectedStock} onSelect={setSelectedStock} />
+
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <div style={{
+          padding: '12px 20px',
+          borderBottom: '1px solid #1f2937',
+          display: 'flex',
+          alignItems: 'center',
+          flexShrink: 0,
+        }}>
+          <span style={{ fontWeight: 700, fontSize: 16 }}>{selectedStock}</span>
+        </div>
+
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <PlotChart loading={loading} />
+        </div>
+      </div>
     </div>
   );
 }
-
-export default App;
