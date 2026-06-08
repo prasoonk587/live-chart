@@ -14,6 +14,7 @@ export interface PriceUpdateDetail {
 
 interface SymbolState {
   candleMap: Map<number, Candle>;
+  sortedCandles: Candle[];       // mirrors candleMap in chronological order; never re-sorted
   openCandle: Candle | null;
   tickBuffer: Tick[];
   historicalDone: boolean;
@@ -39,6 +40,7 @@ export class StockPrices {
 
     const state: SymbolState = {
       candleMap: new Map(),
+      sortedCandles: [],
       openCandle: null,
       tickBuffer: [],
       historicalDone: false,
@@ -48,7 +50,6 @@ export class StockPrices {
     this.symbols.set(symbol, state);
 
     const now = Math.floor(Date.now() / 1000);
-    const fetchFrom = now - HISTORY_WINDOW;
 
     state.unsubscribeFeed = LivePriceFeed.getInstance().subscribe(
       symbol,
@@ -56,10 +57,13 @@ export class StockPrices {
     );
 
     const historical = await new Promise<Candle[]>((resolve) => {
-      setTimeout(() => resolve(fetchHistoricalCandles(symbol, fetchFrom, now)), 300);
+      setTimeout(() => resolve(fetchHistoricalCandles(symbol, now - HISTORY_WINDOW, now)), 300);
     });
 
     for (const c of historical) state.candleMap.set(c.time, c);
+    // fetchHistoricalCandles returns candles in chronological order, matching Map
+    // insertion order, so Array.from preserves the sequence without a sort.
+    state.sortedCandles = Array.from(state.candleMap.values());
 
     state.historicalDone = true;
     for (const tick of state.tickBuffer) this.ingestTick(symbol, tick);
@@ -72,8 +76,8 @@ export class StockPrices {
     if (!state || state.paused) return;
     state.unsubscribeFeed?.();
     state.unsubscribeFeed = undefined;
-    const sorted = this.getSortedCandles(symbol);
-    if (sorted.length > 0) state.watermark = sorted[sorted.length - 1].time;
+    const last = state.sortedCandles.at(-1);
+    if (last) state.watermark = last.time;
     state.paused = true;
   }
 
@@ -85,9 +89,7 @@ export class StockPrices {
   }
 
   getSortedCandles(symbol: string): Candle[] {
-    const state = this.symbols.get(symbol);
-    if (!state) return [];
-    return Array.from(state.candleMap.values()).sort((a, b) => a.time - b.time);
+    return this.symbols.get(symbol)?.sortedCandles ?? [];
   }
 
   getOpenCandle(symbol: string): Candle | null {
@@ -116,6 +118,10 @@ export class StockPrices {
     });
 
     for (const c of gap) state.candleMap.set(c.time, c);
+    // Rebuild after bulk merge — Map.set on an existing key preserves insertion
+    // position, so values() is still chronological after the gap is merged in.
+    state.sortedCandles = Array.from(state.candleMap.values());
+
     state.historicalDone = true;
     for (const tick of state.tickBuffer) this.ingestTick(symbol, tick);
     state.tickBuffer = [];
@@ -134,7 +140,7 @@ export class StockPrices {
     this.emitter.emit(symbol, {
       tick,
       openCandle: state.openCandle,
-      candles: this.getSortedCandles(symbol),
+      candles: state.sortedCandles,
     });
   }
 
@@ -145,7 +151,11 @@ export class StockPrices {
     if (state.candleMap.has(bucketTs)) return;
 
     if (!state.openCandle || state.openCandle.time !== bucketTs) {
-      if (state.openCandle) state.candleMap.set(state.openCandle.time, { ...state.openCandle });
+      if (state.openCandle) {
+        const closed = { ...state.openCandle };
+        state.candleMap.set(closed.time, closed);
+        state.sortedCandles.push(closed);  // always the newest closed candle → push is O(1)
+      }
       state.openCandle = {
         time: bucketTs,
         open: tick.price, high: tick.price, low: tick.price, close: tick.price,
