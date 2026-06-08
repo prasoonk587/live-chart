@@ -16,6 +16,7 @@ export type PlotListener = (points: PlotPoint[]) => void;
 interface ActiveLine {
   series: ISeriesApi<'Line'>;
   fn: IndicatorFn;
+  initialized: boolean;
 }
 
 export class LiveChart {
@@ -107,6 +108,7 @@ export class LiveChart {
 
     this.currentSymbol = symbol;
     this.seriesInitialized = false;
+    for (const line of this.activeLines.values()) line.initialized = false;
 
     await this.stockPrices.load(symbol);
 
@@ -180,7 +182,7 @@ export class LiveChart {
           title: '',
         });
       }
-      this.activeLines.set(line.id, { series, fn: line.fn });
+      this.activeLines.set(line.id, { series, fn: line.fn, initialized: false });
     }
     this.applyMainSeriesMargins();
   }
@@ -223,7 +225,8 @@ export class LiveChart {
   }
 
   private updateIndicators(primary: Candle[]): void {
-    // Build sources map: 'primary' + any extra symbols declared by active indicators
+    if (this.activeLines.size === 0) return;
+
     const sources: Record<string, Candle[]> = { primary };
     for (const def of this.activeIndicators.values()) {
       for (const sym of def.sources ?? []) {
@@ -231,13 +234,24 @@ export class LiveChart {
       }
     }
 
-    for (const [, { series, fn }] of this.activeLines) {
-      const values = fn(sources);
-      series.setData(
-        primary
-          .map((c, i) => ({ time: c.time as any, value: values[i] }))
-          .filter(d => isFinite(d.value))
-      );
+    const last = primary[primary.length - 1];
+    for (const [, line] of this.activeLines) {
+      const values = line.fn(sources);
+      if (!line.initialized) {
+        // First render for this symbol+line: push the full history.
+        line.series.setData(
+          primary
+            .map((c, i) => ({ time: c.time as any, value: values[i] }))
+            .filter(d => isFinite(d.value))
+        );
+        line.initialized = true;
+      } else {
+        // Hot path: only the last value changed — append or update in O(1).
+        const value = values[values.length - 1];
+        if (isFinite(value)) {
+          line.series.update({ time: last.time as any, value });
+        }
+      }
     }
   }
 
