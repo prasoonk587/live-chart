@@ -108,6 +108,12 @@ export class LiveChart {
 
   async loadChart(symbol: string): Promise<void> {
     this.unsubUpdate?.();
+
+    // Pause outgoing symbol: stops its feed, retains candles for a fast gap-fill on revisit.
+    if (this.currentSymbol && this.currentSymbol !== symbol) {
+      this.stockPrices.pause(this.currentSymbol);
+    }
+
     this.currentSymbol = symbol;
     this.seriesInitialized = false;
 

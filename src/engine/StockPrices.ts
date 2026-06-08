@@ -1,6 +1,5 @@
 import { Candle, Tick } from '../feeds/types';
 import { fetchHistoricalCandles } from '../feeds/MockPriceFeed';
-import { PlotStore } from '../store/PlotStore';
 import { LivePriceFeed } from './LivePriceFeed';
 import { EventEmitter } from './EventEmitter';
 
@@ -18,8 +17,9 @@ interface SymbolState {
   openCandle: Candle | null;
   tickBuffer: Tick[];
   historicalDone: boolean;
+  paused: boolean;
+  watermark: number | null;
   unsubscribeFeed?: () => void;
-  store: PlotStore;
 }
 
 // Manages history + live data for all symbols.
@@ -30,22 +30,25 @@ export class StockPrices {
   private symbols: Map<string, SymbolState> = new Map();
 
   async load(symbol: string): Promise<void> {
-    if (this.symbols.has(symbol)) return;
+    const existing = this.symbols.get(symbol);
+    if (existing) {
+      if (!existing.paused) return;
+      await this.resume(symbol);
+      return;
+    }
 
     const state: SymbolState = {
       candleMap: new Map(),
       openCandle: null,
       tickBuffer: [],
       historicalDone: false,
-      store: new PlotStore(symbol),
+      paused: false,
+      watermark: null,
     };
     this.symbols.set(symbol, state);
 
     const now = Math.floor(Date.now() / 1000);
-    const watermark = state.store.getWatermark();
-    const fetchFrom = watermark
-      ? Math.max(watermark, now - HISTORY_WINDOW)
-      : now - HISTORY_WINDOW;
+    const fetchFrom = now - HISTORY_WINDOW;
 
     state.unsubscribeFeed = LivePriceFeed.getInstance().subscribe(
       symbol,
@@ -63,12 +66,21 @@ export class StockPrices {
     state.tickBuffer = [];
   }
 
+  // Stop the feed but keep candles in memory so a revisit only needs a gap fetch.
+  pause(symbol: string): void {
+    const state = this.symbols.get(symbol);
+    if (!state || state.paused) return;
+    state.unsubscribeFeed?.();
+    state.unsubscribeFeed = undefined;
+    const sorted = this.getSortedCandles(symbol);
+    if (sorted.length > 0) state.watermark = sorted[sorted.length - 1].time;
+    state.paused = true;
+  }
+
   unload(symbol: string): void {
     const state = this.symbols.get(symbol);
     if (!state) return;
     state.unsubscribeFeed?.();
-    const sorted = this.getSortedCandles(symbol);
-    if (sorted.length > 0) state.store.setWatermark(sorted[sorted.length - 1].time);
     this.symbols.delete(symbol);
   }
 
@@ -80,6 +92,33 @@ export class StockPrices {
 
   getOpenCandle(symbol: string): Candle | null {
     return this.symbols.get(symbol)?.openCandle ?? null;
+  }
+
+  private async resume(symbol: string): Promise<void> {
+    const state = this.symbols.get(symbol)!;
+    const now = Math.floor(Date.now() / 1000);
+    const fetchFrom = state.watermark
+      ? Math.max(state.watermark, now - HISTORY_WINDOW)
+      : now - HISTORY_WINDOW;
+
+    state.openCandle = null;
+    state.tickBuffer = [];
+    state.historicalDone = false;
+    state.paused = false;
+
+    state.unsubscribeFeed = LivePriceFeed.getInstance().subscribe(
+      symbol,
+      (tick) => this.onTick(symbol, tick)
+    );
+
+    const gap = await new Promise<Candle[]>((resolve) => {
+      setTimeout(() => resolve(fetchHistoricalCandles(symbol, fetchFrom, now)), 300);
+    });
+
+    for (const c of gap) state.candleMap.set(c.time, c);
+    state.historicalDone = true;
+    for (const tick of state.tickBuffer) this.ingestTick(symbol, tick);
+    state.tickBuffer = [];
   }
 
   private onTick(symbol: string, tick: Tick): void {

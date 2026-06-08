@@ -36,6 +36,7 @@ export function fetchHistoricalCandles(
   fromTs: number,
   toTs: number
 ): Candle[] {
+  console.log('fetchHistoricalCandles', {symbol,fromTs, toTs })
   const start = Math.ceil(fromTs / CANDLE_INTERVAL) * CANDLE_INTERVAL;
   const end   = Math.floor(toTs  / CANDLE_INTERVAL) * CANDLE_INTERVAL;
   if (start >= end) return [];
