@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { PlotChart } from './components/PlotChart';
 import { StockList } from './components/StockList';
 import { IndicatorBar } from './components/IndicatorBar';
-import { useLiveChart } from './hooks/useLiveChart';
 
 const STOCKS = [
   'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'META',
@@ -13,7 +12,6 @@ const STOCKS = [
 
 export default function App() {
   const [selectedStock, setSelectedStock] = useState(STOCKS[0]);
-  const { loading } = useLiveChart(selectedStock);
 
   return (
     <div style={{
@@ -40,7 +38,7 @@ export default function App() {
         <IndicatorBar />
 
         <div style={{ flex: 1, minHeight: 0 }}>
-          <PlotChart loading={loading} />
+          <PlotChart symbol={selectedStock} />
         </div>
       </div>
     </div>

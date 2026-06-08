@@ -29,6 +29,7 @@ export class LiveChart {
   private chart: IChartApi | null = null;
   private series: ISeriesApi<'Candlestick'> | null = null;
   private resizeObserver: ResizeObserver | null = null;
+  private seriesInitialized = false;
 
   // Indicator state survives mount/unmount cycles
   private activeIndicators: Map<string, IndicatorDef> = new Map();
@@ -98,6 +99,7 @@ export class LiveChart {
     this.chart?.remove();
     this.chart = null;
     this.series = null;
+    this.seriesInitialized = false;
     // Series handles are invalidated; mount() will recreate them
     this.activeLines.clear();
   }
@@ -107,6 +109,7 @@ export class LiveChart {
   async loadChart(symbol: string): Promise<void> {
     this.unsubUpdate?.();
     this.currentSymbol = symbol;
+    this.seriesInitialized = false;
 
     await this.stockPrices.load(symbol);
 
@@ -186,9 +189,15 @@ export class LiveChart {
 
   private updateSeries(points: PlotPoint[]): void {
     if (!this.series || points.length === 0) return;
-    this.series.setData(
-      points.map(p => ({ time: p.time as any, open: p.open, high: p.high, low: p.low, close: p.close }))
-    );
+    if (!this.seriesInitialized) {
+      this.series.setData(
+        points.map(p => ({ time: p.time as any, open: p.open, high: p.high, low: p.low, close: p.close }))
+      );
+      this.seriesInitialized = true;
+    } else {
+      const last = points[points.length - 1];
+      this.series.update({ time: last.time as any, open: last.open, high: last.high, low: last.low, close: last.close });
+    }
     this.chart?.timeScale().scrollToRealTime();
   }
 

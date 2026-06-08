@@ -1,12 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { LiveChart } from '../engine/LiveChart';
+import { useLiveChart } from '../hooks/useLiveChart';
 
 interface PlotChartProps {
-  loading: boolean;
+  symbol: string;
 }
 
-export function PlotChart({ loading }: PlotChartProps) {
+export function PlotChart({ symbol }: PlotChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const { loading } = useLiveChart(symbol);
 
   useEffect(() => {
     if (!containerRef.current) return;
