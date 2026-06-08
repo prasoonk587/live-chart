@@ -1,4 +1,4 @@
-import { createChart, IChartApi, ISeriesApi, CandlestickSeries, LineSeries, TickMarkType } from 'lightweight-charts';
+import { createChart, IChartApi, ISeriesApi, CandlestickSeries, LineSeries, LineStyle, TickMarkType } from 'lightweight-charts';
 import { Candle } from '../feeds/types';
 import { StockPrices } from './StockPrices';
 import { IndicatorDef, IndicatorFn } from './Indicators';
@@ -140,6 +140,7 @@ export class LiveChart {
         if (active && this.chart) this.chart.removeSeries(active.series);
         this.activeLines.delete(line.id);
       }
+      this.applyMainSeriesMargins();
       return false;
     }
 
@@ -175,11 +176,34 @@ export class LiveChart {
       if (line.priceScaleId) {
         this.chart!.priceScale(line.priceScaleId).applyOptions({
           scaleMargins: { top: 0.75, bottom: 0.05 },
-          visible: false,
+          visible: true,
+        });
+      }
+      for (const ref of line.referenceLines ?? []) {
+        series.createPriceLine({
+          price: ref.price,
+          color: ref.color,
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: '',
         });
       }
       this.activeLines.set(line.id, { series, fn: line.fn });
     }
+    this.applyMainSeriesMargins();
+  }
+
+  // Shrinks the candlestick pane when a sub-pane indicator (e.g. RSI) is active
+  // so the two areas don't overlap.
+  private applyMainSeriesMargins(): void {
+    const hasSubPane = [...this.activeIndicators.values()]
+      .some(def => def.lines.some(l => l.priceScaleId));
+    this.chart?.priceScale('right').applyOptions({
+      scaleMargins: hasSubPane
+        ? { top: 0.05, bottom: 0.25 }
+        : { top: 0.05, bottom: 0.05 },
+    });
   }
 
   private getCandles(symbol: string): Candle[] {
