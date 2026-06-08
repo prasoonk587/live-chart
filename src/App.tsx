@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { PlotChart } from './components/PlotChart';
 import { StockList } from './components/StockList';
+import { IndicatorBar } from './components/IndicatorBar';
 import { useLiveChart } from './hooks/useLiveChart';
 
 const STOCKS = [
@@ -35,6 +36,8 @@ export default function App() {
         }}>
           <span style={{ fontWeight: 700, fontSize: 16 }}>{selectedStock}</span>
         </div>
+
+        <IndicatorBar />
 
         <div style={{ flex: 1, minHeight: 0 }}>
           <PlotChart loading={loading} />
