@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
-import { LiveChart } from '../engine/LiveChart';
+import { useLiveChartInstance } from '../engine/LiveChartContext';
 
 export function useLiveChart(symbol: string): { loading: boolean } {
+  const chart = useLiveChartInstance();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
 
-    const chart = LiveChart.getInstance();
     const unsub = chart.subscribe((pts) => {
       if (pts.length > 0) setLoading(false);
     });
@@ -15,7 +15,7 @@ export function useLiveChart(symbol: string): { loading: boolean } {
     chart.loadChart(symbol);
 
     return unsub;
-  }, [symbol]);
+  }, [chart, symbol]);
 
   return { loading };
 }

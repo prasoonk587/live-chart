@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { LiveChart } from '../engine/LiveChart';
+import { useLiveChartInstance } from '../engine/LiveChartContext';
 import { PREDEFINED_INDICATORS, IndicatorDef } from '../engine/Indicators';
 
 export function IndicatorBar() {
+  const chart = useLiveChartInstance();
   const [activeIds, setActiveIds] = useState<Set<string>>(new Set());
 
   const toggle = async (def: IndicatorDef) => {
-    await LiveChart.getInstance().toggleIndicator(def);
+    await chart.toggleIndicator(def);
     setActiveIds(prev => {
       const next = new Set(prev);
       if (next.has(def.id)) next.delete(def.id);

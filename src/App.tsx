@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { PlotChart } from './components/PlotChart';
 import { StockList } from './components/StockList';
 import { IndicatorBar } from './components/IndicatorBar';
+import { LiveChart } from './engine/LiveChart';
+import { LiveChartContext } from './engine/LiveChartContext';
 
 const STOCKS = [
   'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'META',
@@ -11,9 +13,11 @@ const STOCKS = [
 ];
 
 export default function App() {
+  const chart = useMemo(() => new LiveChart(), []);
   const [selectedStock, setSelectedStock] = useState(STOCKS[0]);
 
   return (
+    <LiveChartContext.Provider value={chart}>
     <div style={{
       display: 'flex',
       height: '100vh',
@@ -42,5 +46,6 @@ export default function App() {
         </div>
       </div>
     </div>
+    </LiveChartContext.Provider>
   );
 }

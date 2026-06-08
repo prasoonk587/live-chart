@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { LiveChart } from '../engine/LiveChart';
+import { useLiveChartInstance } from '../engine/LiveChartContext';
 import { useLiveChart } from '../hooks/useLiveChart';
 
 interface PlotChartProps {
@@ -7,15 +7,15 @@ interface PlotChartProps {
 }
 
 export function PlotChart({ symbol }: PlotChartProps) {
+  const chart = useLiveChartInstance();
   const containerRef = useRef<HTMLDivElement>(null);
   const { loading } = useLiveChart(symbol);
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const chart = LiveChart.getInstance();
     chart.mount(containerRef.current);
     return () => chart.unmount();
-  }, []);
+  }, [chart]);
 
   return (
     <div style={{ position: 'relative', height: '100%' }}>

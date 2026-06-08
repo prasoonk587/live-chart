@@ -19,8 +19,6 @@ interface ActiveLine {
 }
 
 export class LiveChart {
-  private static instance: LiveChart;
-
   private stockPrices = new StockPrices();
   private listeners: Set<PlotListener> = new Set();
   private currentSymbol = '';
@@ -34,13 +32,6 @@ export class LiveChart {
   // Indicator state survives mount/unmount cycles
   private activeIndicators: Map<string, IndicatorDef> = new Map();
   private activeLines: Map<string, ActiveLine> = new Map();
-
-  private constructor() {}
-
-  static getInstance(): LiveChart {
-    if (!LiveChart.instance) LiveChart.instance = new LiveChart();
-    return LiveChart.instance;
-  }
 
   // ─── Chart lifecycle ───────────────────────────────────────────────────
 
