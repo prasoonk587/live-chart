@@ -10,6 +10,8 @@ export interface IndicatorLine {
   fn: IndicatorFn;
   /** If set, the line is drawn on an isolated price scale (e.g. 'rsi') */
   priceScaleId?: string;
+  /** Horizontal reference lines drawn on the same price scale (e.g. overbought/oversold) */
+  referenceLines?: { price: number; color: string }[];
 }
 
 export interface IndicatorDef {
@@ -137,8 +139,13 @@ export const PREDEFINED_INDICATORS: IndicatorDef[] = [
       color: '#a78bfa',
       fn: ({ primary }) => calcRSI(primary, 14),
       priceScaleId: 'rsi',
+      referenceLines: [
+        { price: 70, color: '#6b7280' },
+        { price: 50, color: '#374151' },
+        { price: 30, color: '#6b7280' },
+      ],
     }],
   },
   // Cross-symbol spread: pre-loads GOOGL and plots (current − GOOGL) per minute.
-  makeSpread('GOOGL'),
+  // makeSpread('GOOGL'),
 ];
